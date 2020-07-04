@@ -3,8 +3,8 @@ import { User, Item } from "./types/qiita-types";
 const QIITA_ACCESS_TOKEN = PropertiesService.getScriptProperties().getProperty(
   "qiitaAccessToken"
 ) as string;
-const QIITA_USER_NAME = PropertiesService.getScriptProperties().getProperty(
-  "qiitaUserName"
+const QIITA_USERNAME = PropertiesService.getScriptProperties().getProperty(
+  "qiitaUsername"
 ) as string;
 
 // -------------------------------------------------------------
@@ -12,10 +12,13 @@ const QIITA_USER_NAME = PropertiesService.getScriptProperties().getProperty(
 // -------------------------------------------------------------
 function main() {
   const today = Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd");
+  // Qiitaの指標取得
   const qiitaKpi = new QiitaClient(
     QIITA_ACCESS_TOKEN,
-    QIITA_USER_NAME
+    QIITA_USERNAME
   ).fetchKpi();
+  // はてなの指標取得
+  const hatenaKpi = new HatenaClient(QIITA_USERNAME).fetchKpi();
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const insertLow = sheet.getLastRow() + 1;
@@ -25,6 +28,7 @@ function main() {
     qiitaKpi.lgtmCount,
     qiitaKpi.stockCount,
     qiitaKpi.followersCount,
+    hatenaKpi.bookmarkCount
   ].forEach((data, i) => {
     sheet.getRange(insertLow, i + 1).setValue(data);
   });
@@ -43,9 +47,9 @@ class QiitaClient {
     method: "get" as const,
   };
 
-  constructor(private accessToken: string, private userName: string) {}
+  constructor(private accessToken: string, private username: string) {}
 
-  // Qiita APIから取得できる指標の取得
+  // Qiita APIから指標取得
   fetchKpi() {
     const user = this.fetchUser();
     const items = this.fetchAllItems(user);
@@ -63,7 +67,7 @@ class QiitaClient {
   // ユーザー情報の取得
   private fetchUser() {
     const response = UrlFetchApp.fetch(
-      `${this.BASE_URL}/users/${this.userName}`,
+      `${this.BASE_URL}/users/${this.username}`,
       this.FETCH_OPTION
     );
     return JSON.parse(response.getContentText()) as User;
@@ -117,5 +121,52 @@ class QiitaClient {
       return result + stockedUser.length;
     }, 0);
     return stockCount;
+  }
+}
+
+// -------------------------------------------------------------
+// Hatena API Client
+// -------------------------------------------------------------
+class HatenaClient {
+  private readonly BASE_URL = "http://b.hatena.ne.jp";
+
+  constructor(private qiitaUsername: string) {}
+
+  // はてな APIから指標取得
+  fetchKpi() {
+    const bookmarkCount = this.fetchBookmarkCount();
+
+    return {
+      bookmarkCount,
+    };
+  }
+
+  // ブックマークカウントの集計
+  private fetchBookmarkCount() {
+    const redirectUrl = this.getRedirectUrl(
+      `${this.BASE_URL}/bc/https://qiita.com/${this.qiitaUsername}`
+    );
+    // `https://b.st-hatena.com/images/counter/default/00/00/0000653.gif` の形式で
+    // ブクマ数が書かれたgif画像のURLを取得できるので、そこからブクマ数だけを抽出する
+    const bookmarkCount = redirectUrl.match(
+      /https:\/\/b.st-hatena\.com\/images\/counter\/default\/\d+\/\d+\/(\d+).gif/
+    )![1];
+
+    return Number(bookmarkCount);
+  }
+
+  // リダイレクトURLの取得
+  private getRedirectUrl(url: string): string {
+    const response = UrlFetchApp.fetch(url, {
+      followRedirects: false,
+      muteHttpExceptions: false,
+    });
+    const redirectUrl = (response.getHeaders() as any)["Location"] as string;
+    if (redirectUrl) {
+      const nextRedirectUrl = this.getRedirectUrl(redirectUrl);
+      return nextRedirectUrl;
+    } else {
+      return url;
+    }
   }
 }
