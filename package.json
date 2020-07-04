@@ -1,0 +1,23 @@
+{
+  "name": "qiita-kpi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/kawamataryo/qiita-kpi.git"
+  },
+  "keywords": [],
+  "author": "Ryo Kawamata <ba068082@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kawamataryo/qiita-kpi/issues"
+  },
+  "homepage": "https://github.com/kawamataryo/qiita-kpi#readme",
+  "dependencies": {
+    "@types/google-apps-script": "^1.0.14"
+  }
+}
